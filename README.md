@@ -33,6 +33,8 @@ It helps in many scenes, such as:
 3. managing many json files with duplicate contents
 4. data driven testing by JSON files
 
+See [example](#example) and [godoc] for more details.
+
 ## Example
 
 ```text

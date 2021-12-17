@@ -29,6 +29,17 @@ func Unmarshal(data []byte, v interface{}, options ...ExtOption) error {
 	return json.Unmarshal(data, v)
 }
 
+// Clean parses data with extended feature and returns it as normal
+// spec-compliant JSON data.
+func Clean(data []byte, options ...ExtOption) ([]byte, error) {
+	var raw json.RawMessage
+	err := Unmarshal(data, &raw, options...)
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
 // Load reads JSON-encoded data from the named file at path and stores
 // the result in the value pointed to by v.
 //
