@@ -3,10 +3,12 @@ package parser
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -266,11 +268,23 @@ func (p *parser) parseString(n *node32) string {
 func (p *parser) parseDirective(n *node32) (err error) {
 	n = n.up
 	switch n.pegRule {
+	case ruleEnv:
+		return p.parseEnv(n)
 	case ruleInclude:
 		return p.parseInclude(n)
 	case ruleRefer:
 		return p.parseRefer(n)
 	}
+	return nil
+}
+
+func (p *parser) parseEnv(n *node32) (err error) {
+	n = n.up
+	envName := p.parseString(n)
+	envName = envName[1 : len(envName)-1]
+	value := os.Getenv(envName)
+	b, _ := json.Marshal(value)
+	p.buf = append(p.buf, b...)
 	return nil
 }
 
@@ -293,7 +307,8 @@ func (p *parser) parseInclude(n *node32) (err error) {
 func (p *parser) parseRefer(n *node32) (err error) {
 	n = n.up
 	jsonPath := p.parseString(n)
-	seq, refId := p.getReferId(jsonPath[1 : len(jsonPath)-1])
+	jsonPath = jsonPath[1 : len(jsonPath)-1]
+	seq, refId := p.getReferId(jsonPath)
 	p.buf = append(p.buf, '"')
 	p.buf = append(p.buf, refId...)
 	p.buf = append(p.buf, '"')

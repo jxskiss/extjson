@@ -6,13 +6,14 @@
 #
 # Extended features:
 # - trailing comma of Object and Array
-# - traditional, end of line, or pragma comments
+# - traditional, end of line, and pragma comments
 # - simple identifier as object key without quotes
 # - Python boolean constants
 # - Python None as null
 # - Python style single quote string
+# - read environment variables
 # - include other JSON files
-# - reference to other value in same file
+# - reference to other values in same file
 
 
 package parser
@@ -27,9 +28,10 @@ Object    <-  LWING ( ObjectKey COLON JSON COMMA )* ( ObjectKey COLON JSON )? RW
 ObjectKey <-  String / SimpleIdentifier
 Array     <-  LBRK ( JSON COMMA )* JSON? RBRK
 
-Directive <-  ( Include / Refer )
+Directive <-  ( Env / Include / Refer )
+Env       <-  '@env(' String ')'
 Include   <-  '@incl(' String ')'
-Refer     <-  '@ref( String )'
+Refer     <-  '@ref(' String ')'
 
 SimpleIdentifier    <-  [0-9A-Za-z_$]+
 String              <-  SingleQuoteLiteral / DoubleQuoteLiteral

@@ -1,6 +1,7 @@
 package extjson
 
 import (
+	"os"
 	"reflect"
 	"testing"
 )
@@ -21,10 +22,23 @@ var malformedJSONData = `
 	"obj2": {
 		"foo": "bar", /* Another style inline comment. */
 	}, // <-- Another trailing comma!
+	'py_true': True, // Single quote string and True as true value.
+	py_false: False, // Simple identifier and Python False as false value.
+	py_none: None,   /* Simple identifier and Python None as null value. */
+	"test_env": @env("SOME_ENV"),  // Read environment variable.
+	"test_ref1": @ref("obj1.foo"), // Reference to other values, wil be "bar".
+	"test_ref2": @ref("array.2"),  // Another reference, will be 3.
+	"test_ref3": @ref("array.#"),  // Get length of "array", will be 3.
+	"friends": [
+		{"first": "Dale", "last": "Murphy", "age": 44, "nets": ["ig", "fb", "tw"]},
+		{"first": "Roger", "last": "Craig", "age": 68, "nets": ["fb", "tw"]},
+		{"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
+	],
+	"test_ref4": @ref("friends.#.first"), // Will be ["Dale","Roger","Jane"].
 }
 `
 
-func TestUnmarshalExt_comment_trailingComma(t *testing.T) {
+func TestUnmarshal(t *testing.T) {
 	want := map[string]interface{}{
 		"obj1": map[string]interface{}{
 			"foo": "bar",
@@ -38,7 +52,22 @@ func TestUnmarshalExt_comment_trailingComma(t *testing.T) {
 		"obj2": map[string]interface{}{
 			"foo": "bar",
 		},
+		"py_true":   true,
+		"py_false":  false,
+		"py_none":   nil,
+		"test_env":  "some-env-value",
+		"test_ref1": "bar",
+		"test_ref2": float64(3),
+		"test_ref3": float64(3),
+		"friends": []interface{}{
+			map[string]interface{}{"first": "Dale", "last": "Murphy", "age": float64(44), "nets": []interface{}{"ig", "fb", "tw"}},
+			map[string]interface{}{"first": "Roger", "last": "Craig", "age": float64(68), "nets": []interface{}{"fb", "tw"}},
+			map[string]interface{}{"first": "Jane", "last": "Murphy", "age": float64(47), "nets": []interface{}{"ig", "tw"}},
+		},
+		"test_ref4": []interface{}{"Dale", "Roger", "Jane"},
 	}
+
+	os.Setenv("SOME_ENV", "some-env-value")
 	got := make(map[string]interface{})
 	err := Unmarshal([]byte(malformedJSONData), &got)
 	if err != nil {
@@ -49,7 +78,7 @@ func TestUnmarshalExt_comment_trailingComma(t *testing.T) {
 	}
 }
 
-func TestUnmarshalExt_UnicodeEscape(t *testing.T) {
+func TestUnmarshal_UnicodeEscape(t *testing.T) {
 	jsonData := `["Grammar \u0026 Mechanics \/ Word Work"]`
 	got := make([]string, 0)
 	err := Unmarshal([]byte(jsonData), &got)
@@ -58,7 +87,7 @@ func TestUnmarshalExt_UnicodeEscape(t *testing.T) {
 	}
 }
 
-func TestUnmarshalExt_SingleQuote(t *testing.T) {
+func TestUnmarshal_SingleQuote(t *testing.T) {
 	jsonData := `{'key\'': 'value"'}`
 	got := make(map[string]string)
 	err := Unmarshal([]byte(jsonData), &got)
