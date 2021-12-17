@@ -21,6 +21,7 @@ extjson extends the JSON syntax with following features:
 1. Python None as null
 1. Python style single quote string
 1. include other JSON files (with max depth limited)
+1. reference to other value in same file
 
 It helps in many scenes, such as:
 

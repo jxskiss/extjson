@@ -12,6 +12,7 @@
 # - Python None as null
 # - Python style single quote string
 # - include other JSON files
+# - reference to other value in same file
 
 
 package parser
@@ -21,11 +22,14 @@ type JSON Peg {
 
 
 Document  <-  Spacing JSON EOT
-JSON      <-  ( Object / Array / String / True / False / Null / Number / Include ) Spacing
+JSON      <-  ( Object / Array / String / True / False / Null / Number / Directive ) Spacing
 Object    <-  LWING ( ObjectKey COLON JSON COMMA )* ( ObjectKey COLON JSON )? RWING
 ObjectKey <-  String / SimpleIdentifier
 Array     <-  LBRK ( JSON COMMA )* JSON? RBRK
+
+Directive <-  ( Include / Refer )
 Include   <-  '@incl(' String ')'
+Refer     <-  '@ref( String )'
 
 SimpleIdentifier    <-  [0-9A-Za-z_$]+
 String              <-  SingleQuoteLiteral / DoubleQuoteLiteral

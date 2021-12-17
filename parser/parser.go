@@ -1,22 +1,31 @@
 package parser
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unsafe"
+
+	"github.com/tidwall/gjson"
 )
 
-const maxIncludeDepth = 10
+//go:generate peg json.peg
 
-func Parse(data []byte, includeRoot string) ([]byte, error) {
-	return parse(data, includeRoot, 0)
+const maxImportDepth = 10
+
+func Parse(data []byte, importRoot string) ([]byte, error) {
+	return parse(data, importRoot, 0)
 }
 
-func parse(data []byte, includeRoot string, depth int) ([]byte, error) {
-	if depth > maxIncludeDepth {
-		return nil, errors.New("max include depth exceeded")
+func parse(data []byte, importRoot string, depth int) ([]byte, error) {
+	if depth > maxImportDepth {
+		return nil, errors.New("max import depth exceeded")
 	}
 
 	doc := &JSON{
@@ -35,8 +44,10 @@ func parse(data []byte, includeRoot string, depth int) ([]byte, error) {
 	parser := &parser{
 		doc:   doc,
 		buf:   make([]byte, 0, len(data)),
-		root:  includeRoot,
+		root:  importRoot,
 		depth: depth,
+
+		refTable: make(map[string]int),
 	}
 	return parser.rewrite()
 }
@@ -47,6 +58,11 @@ type parser struct {
 
 	root  string
 	depth int
+
+	refMark    string
+	refCounter int
+	refTable   map[string]int
+	refDag     dag
 }
 
 func (p *parser) text(n *node32) string {
@@ -69,7 +85,75 @@ func (p *parser) rewrite() ([]byte, error) {
 			}
 		}
 	}
+
+	err := p.resolveReferences()
+	if err != nil {
+		return nil, err
+	}
+
 	return p.buf, nil
+}
+
+func (p *parser) resolveReferences() error {
+	if len(p.refMark) == 0 {
+		return nil
+	}
+	mark := p.refMark
+	markLen := len(mark) + 1
+
+	resolved := make(map[int]string)
+	for path, seq := range p.refTable {
+		r := gjson.GetBytes(p.buf, path)
+		if !r.Exists() {
+			return fmt.Errorf("cannot resolve reference %s", path)
+		}
+
+		resolved[seq] = r.Raw
+
+		pos := 0
+		for pos < len(r.Raw) {
+			idx := strings.Index(r.Raw[pos:], mark)
+			if idx < 0 {
+				break
+			}
+			end := idx + markLen + 1
+			for end < len(r.Raw) {
+				if r.Raw[end] >= '0' && r.Raw[end] <= '9' {
+					end++
+					continue
+				}
+				break
+			}
+			refSeqStr := r.Raw[idx+markLen : end]
+			refSeq, _ := strconv.ParseInt(refSeqStr, 10, 32)
+			if int(refSeq) == seq {
+				return fmt.Errorf("cannot reference to self %s", path)
+			}
+			p.refDag.addEdge(int(refSeq), seq)
+			pos = end
+		}
+	}
+
+	// resolving order
+	order := p.refDag.sort()
+
+	for _, seq := range order {
+		final := resolved[seq]
+		placeholder := `"` + p.referPlaceholder(seq) + `"`
+		p.refDag.visitNeighbors(seq, func(to int) {
+			resolved[to] = strings.Replace(resolved[to], placeholder, final, -1)
+		})
+	}
+	oldnew := make([]string, 0, 2*len(resolved))
+	for seq, text := range resolved {
+		placeholder := `"` + p.referPlaceholder(seq) + `"`
+		oldnew = append(oldnew, placeholder, text)
+	}
+	var repl = strings.NewReplacer(oldnew...)
+	var buf bytes.Buffer
+	repl.WriteString(&buf, b2s(p.buf))
+	p.buf = buf.Bytes()
+	return nil
 }
 
 func (p *parser) parseJSON(n *node32) (err error) {
@@ -93,8 +177,8 @@ func (p *parser) parseJSON(n *node32) (err error) {
 		p.buf = append(p.buf, "null"...)
 	case ruleNumber:
 		p.buf = append(p.buf, p.text(n)...)
-	case ruleInclude:
-		if err = p.parseInclude(n); err != nil {
+	case ruleDirective:
+		if err = p.parseDirective(n); err != nil {
 			return
 		}
 	}
@@ -179,11 +263,22 @@ func (p *parser) parseString(n *node32) string {
 	return ""
 }
 
+func (p *parser) parseDirective(n *node32) (err error) {
+	n = n.up
+	switch n.pegRule {
+	case ruleInclude:
+		return p.parseInclude(n)
+	case ruleRefer:
+		return p.parseRefer(n)
+	}
+	return nil
+}
+
 func (p *parser) parseInclude(n *node32) (err error) {
 	n = n.up
-	includePath := p.parseString(n)
-	includePath = filepath.Join(p.root, includePath[1:len(includePath)-1])
-	included, err := ioutil.ReadFile(includePath)
+	importPath := p.parseString(n)
+	importPath = filepath.Join(p.root, importPath[1:len(importPath)-1])
+	included, err := ioutil.ReadFile(importPath)
 	if err != nil {
 		return
 	}
@@ -195,12 +290,52 @@ func (p *parser) parseInclude(n *node32) (err error) {
 	return nil
 }
 
+func (p *parser) parseRefer(n *node32) (err error) {
+	n = n.up
+	jsonPath := p.parseString(n)
+	seq, refId := p.getReferId(jsonPath[1 : len(jsonPath)-1])
+	p.buf = append(p.buf, '"')
+	p.buf = append(p.buf, refId...)
+	p.buf = append(p.buf, '"')
+	p.refDag.addVertex(seq)
+	return nil
+}
+
+func (p *parser) getReferId(path string) (int, string) {
+	if p.refMark == "" {
+		for {
+			mark := make([]byte, 16)
+			_, err := rand.Read(mark)
+			if err != nil {
+				panic(fmt.Sprintf("rand.Read got error %v", err))
+			}
+			str := hex.EncodeToString(mark)
+			if !strings.Contains(p.doc.Buffer, str) {
+				p.refMark = str
+				break
+			}
+		}
+	}
+	seq := p.refTable[path]
+	if seq == 0 {
+		p.refCounter++
+		seq = p.refCounter
+		p.refTable[path] = seq
+	}
+	placeholder := p.referPlaceholder(seq)
+	return seq, placeholder
+}
+
+func (p *parser) referPlaceholder(n int) string {
+	return fmt.Sprintf("%s:%d", p.refMark, n)
+}
+
 func (p *JSON) hasExtendedFeature() bool {
 	var preRule pegRule
 	for _, n := range p.Tokens() {
 		switch n.pegRule {
 		case ruleSingleQuoteLiteral,
-			ruleInclude,
+			ruleInclude, ruleRefer,
 			ruleLongComment, ruleLineComment, rulePragma:
 			return true
 		case ruleRWING, ruleRBRK:
