@@ -18,11 +18,11 @@ import (
 // The extended features are documented in the README file.
 func UnmarshalExt(data []byte, v interface{}, options ...ExtOption) error {
 	opt := new(extOptions).apply(options...)
-	importRoot, err := opt.getImportRoot()
+	includeRoot, err := opt.getIncludeRoot()
 	if err != nil {
 		return err
 	}
-	data, err = parser.Parse(data, importRoot)
+	data, err = parser.Parse(data, includeRoot)
 	if err != nil {
 		return err
 	}
@@ -49,11 +49,11 @@ func LoadExt(path string, v interface{}, options ...ExtOption) error {
 	return UnmarshalExt(data, v, options...)
 }
 
-// ImportRoot specifies the root directory to use with the extended file
+// IncludeRoot specifies the root directory to use with the extended file
 // including feature.
-func ImportRoot(dir string) ExtOption {
+func IncludeRoot(dir string) ExtOption {
 	return ExtOption{apply: func(options *extOptions) {
-		options.ImportRoot = dir
+		options.IncludeRoot = dir
 	}}
 }
 
@@ -63,7 +63,7 @@ type ExtOption struct {
 }
 
 type extOptions struct {
-	ImportRoot string
+	IncludeRoot string
 }
 
 func (o *extOptions) apply(opts ...ExtOption) *extOptions {
@@ -73,9 +73,9 @@ func (o *extOptions) apply(opts ...ExtOption) *extOptions {
 	return o
 }
 
-func (o *extOptions) getImportRoot() (string, error) {
-	if o.ImportRoot != "" {
-		return o.ImportRoot, nil
+func (o *extOptions) getIncludeRoot() (string, error) {
+	if o.IncludeRoot != "" {
+		return o.IncludeRoot, nil
 	}
 	return os.Getwd()
 }

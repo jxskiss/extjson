@@ -23,7 +23,7 @@ const (
 	ruleObject
 	ruleObjectKey
 	ruleArray
-	ruleImport
+	ruleInclude
 	ruleSimpleIdentifier
 	ruleString
 	ruleSingleQuoteLiteral
@@ -61,7 +61,7 @@ var rul3s = [...]string{
 	"Object",
 	"ObjectKey",
 	"Array",
-	"Import",
+	"Include",
 	"SimpleIdentifier",
 	"String",
 	"SingleQuoteLiteral",
@@ -405,7 +405,7 @@ func (p *JSON) Init(options ...func(*JSON) error) error {
 			position, tokenIndex = position0, tokenIndex0
 			return false
 		},
-		/* 1 JSON <- <((Object / Array / String / True / False / Null / Number / Import) Spacing)> */
+		/* 1 JSON <- <((Object / Array / String / True / False / Null / Number / Include) Spacing)> */
 		func() bool {
 			position2, tokenIndex2 := position, tokenIndex
 			{
@@ -454,7 +454,7 @@ func (p *JSON) Init(options ...func(*JSON) error) error {
 					goto l4
 				l11:
 					position, tokenIndex = position4, tokenIndex4
-					if !_rules[ruleImport]() {
+					if !_rules[ruleInclude]() {
 						goto l2
 					}
 				}
@@ -588,7 +588,7 @@ func (p *JSON) Init(options ...func(*JSON) error) error {
 			position, tokenIndex = position22, tokenIndex22
 			return false
 		},
-		/* 5 Import <- <('@' 'i' 'm' 'p' 'o' 'r' 't' '(' String ')')> */
+		/* 5 Include <- <('@' 'i' 'n' 'c' 'l' '(' String ')')> */
 		func() bool {
 			position28, tokenIndex28 := position, tokenIndex
 			{
@@ -601,23 +601,15 @@ func (p *JSON) Init(options ...func(*JSON) error) error {
 					goto l28
 				}
 				position++
-				if buffer[position] != rune('m') {
+				if buffer[position] != rune('n') {
 					goto l28
 				}
 				position++
-				if buffer[position] != rune('p') {
+				if buffer[position] != rune('c') {
 					goto l28
 				}
 				position++
-				if buffer[position] != rune('o') {
-					goto l28
-				}
-				position++
-				if buffer[position] != rune('r') {
-					goto l28
-				}
-				position++
-				if buffer[position] != rune('t') {
+				if buffer[position] != rune('l') {
 					goto l28
 				}
 				position++
@@ -632,7 +624,7 @@ func (p *JSON) Init(options ...func(*JSON) error) error {
 					goto l28
 				}
 				position++
-				add(ruleImport, position29)
+				add(ruleInclude, position29)
 			}
 			return true
 		l28:

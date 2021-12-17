@@ -15,7 +15,7 @@ var malformedJSONData = `
 	This style of comments will also be safely removed.
 	*/
 	"array": [1, 2, 3, ], // Trailing comma in array.
-	"import": @import("testdata.json"), // Import another json file.
+	"include": @incl("testdata.json"), // Include another json file.
 	identifier_simple1: 1234,
 	$identifierSimple2: "abc",
 	"obj2": {
@@ -30,7 +30,7 @@ func TestUnmarshalExt_comment_trailingComma(t *testing.T) {
 			"foo": "bar",
 		},
 		"array": []interface{}{float64(1), float64(2), float64(3)},
-		"import": map[string]interface{}{
+		"include": map[string]interface{}{
 			"foo": "bar",
 		},
 		"identifier_simple1": float64(1234),

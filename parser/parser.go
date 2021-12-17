@@ -8,15 +8,15 @@ import (
 	"unsafe"
 )
 
-const maxImportDepth = 10
+const maxIncludeDepth = 10
 
-func Parse(data []byte, importRoot string) ([]byte, error) {
-	return parse(data, importRoot, 0)
+func Parse(data []byte, includeRoot string) ([]byte, error) {
+	return parse(data, includeRoot, 0)
 }
 
-func parse(data []byte, importRoot string, depth int) ([]byte, error) {
-	if depth > maxImportDepth {
-		return nil, errors.New("max import depth exceeded")
+func parse(data []byte, includeRoot string, depth int) ([]byte, error) {
+	if depth > maxIncludeDepth {
+		return nil, errors.New("max include depth exceeded")
 	}
 
 	doc := &JSON{
@@ -35,7 +35,7 @@ func parse(data []byte, importRoot string, depth int) ([]byte, error) {
 	parser := &parser{
 		doc:   doc,
 		buf:   make([]byte, 0, len(data)),
-		root:  importRoot,
+		root:  includeRoot,
 		depth: depth,
 	}
 	return parser.rewrite()
@@ -93,8 +93,8 @@ func (p *parser) parseJSON(n *node32) (err error) {
 		p.buf = append(p.buf, "null"...)
 	case ruleNumber:
 		p.buf = append(p.buf, p.text(n)...)
-	case ruleImport:
-		if err = p.parseImport(n); err != nil {
+	case ruleInclude:
+		if err = p.parseInclude(n); err != nil {
 			return
 		}
 	}
@@ -179,19 +179,19 @@ func (p *parser) parseString(n *node32) string {
 	return ""
 }
 
-func (p *parser) parseImport(n *node32) (err error) {
+func (p *parser) parseInclude(n *node32) (err error) {
 	n = n.up
-	importPath := p.parseString(n)
-	importPath = filepath.Join(p.root, importPath[1:len(importPath)-1])
-	importd, err := ioutil.ReadFile(importPath)
+	includePath := p.parseString(n)
+	includePath = filepath.Join(p.root, includePath[1:len(includePath)-1])
+	included, err := ioutil.ReadFile(includePath)
 	if err != nil {
 		return
 	}
-	importd, err = parse(importd, p.root, p.depth+1)
+	included, err = parse(included, p.root, p.depth+1)
 	if err != nil {
 		return
 	}
-	p.buf = append(p.buf, importd...)
+	p.buf = append(p.buf, included...)
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (p *JSON) hasExtendedFeature() bool {
 	for _, n := range p.Tokens() {
 		switch n.pegRule {
 		case ruleSingleQuoteLiteral,
-			ruleImport,
+			ruleInclude,
 			ruleLongComment, ruleLineComment, rulePragma:
 			return true
 		case ruleRWING, ruleRBRK:

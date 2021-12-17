@@ -11,7 +11,7 @@
 # - Python boolean constants
 # - Python None as null
 # - Python style single quote string
-# - import other JSON files
+# - include other JSON files
 
 
 package parser
@@ -21,11 +21,11 @@ type JSON Peg {
 
 
 Document  <-  Spacing JSON EOT
-JSON      <-  ( Object / Array / String / True / False / Null / Number / Import ) Spacing
+JSON      <-  ( Object / Array / String / True / False / Null / Number / Include ) Spacing
 Object    <-  LWING ( ObjectKey COLON JSON COMMA )* ( ObjectKey COLON JSON )? RWING
 ObjectKey <-  String / SimpleIdentifier
 Array     <-  LBRK ( JSON COMMA )* JSON? RBRK
-Import    <-  '@import(' String ')'
+Include   <-  '@incl(' String ')'
 
 SimpleIdentifier    <-  [0-9A-Za-z_$]+
 String              <-  SingleQuoteLiteral / DoubleQuoteLiteral
