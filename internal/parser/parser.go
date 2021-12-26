@@ -21,11 +21,11 @@ import (
 
 const maxImportDepth = 10
 
-func Parse(data []byte, importRoot string) ([]byte, error) {
-	return parse(data, importRoot, 0)
+func Parse(data []byte, importRoot string, enableEnv bool) ([]byte, error) {
+	return parse(data, importRoot, 0, enableEnv)
 }
 
-func parse(data []byte, importRoot string, depth int) ([]byte, error) {
+func parse(data []byte, importRoot string, depth int, enableEnv bool) ([]byte, error) {
 	if depth > maxImportDepth {
 		return nil, errors.New("max import depth exceeded")
 	}
@@ -44,12 +44,12 @@ func parse(data []byte, importRoot string, depth int) ([]byte, error) {
 	}
 
 	parser := &parser{
-		doc:   doc,
-		buf:   make([]byte, 0, len(data)),
-		root:  importRoot,
-		depth: depth,
-
-		refTable: make(map[string]int),
+		doc:       doc,
+		buf:       make([]byte, 0, len(data)),
+		root:      importRoot,
+		depth:     depth,
+		enableEnv: enableEnv,
+		refTable:  make(map[string]int),
 	}
 	return parser.rewrite()
 }
@@ -60,6 +60,8 @@ type parser struct {
 
 	root  string
 	depth int
+
+	enableEnv bool
 
 	refMark    string
 	refCounter int
@@ -279,6 +281,10 @@ func (p *parser) parseDirective(n *node32) (err error) {
 }
 
 func (p *parser) parseEnv(n *node32) (err error) {
+	if !p.enableEnv {
+		p.buf = append(p.buf, '"', '"')
+		return nil
+	}
 	n = n.up
 	envName := p.parseString(n)
 	envName = envName[1 : len(envName)-1]
@@ -296,7 +302,7 @@ func (p *parser) parseInclude(n *node32) (err error) {
 	if err != nil {
 		return
 	}
-	included, err = parse(included, p.root, p.depth+1)
+	included, err = parse(included, p.root, p.depth+1, p.enableEnv)
 	if err != nil {
 		return
 	}
@@ -350,7 +356,7 @@ func (p *JSON) hasExtendedFeature() bool {
 	for _, n := range p.Tokens() {
 		switch n.pegRule {
 		case ruleSingleQuoteLiteral,
-			ruleInclude, ruleRefer,
+			ruleDirective, ruleEnv, ruleInclude, ruleRefer,
 			ruleLongComment, ruleLineComment, rulePragma:
 			return true
 		case ruleRWING, ruleRBRK:

@@ -2,12 +2,22 @@ package extjson
 
 import "os"
 
+// EnableEnv enables reading environment variables.
+// By default, it is disabled for security consideration.
+func EnableEnv() ExtOption {
+	return ExtOption{
+		apply: func(options *extOptions) {
+			options.EnableEnv = true
+		}}
+}
+
 // IncludeRoot specifies the root directory to use with the extended file
 // including feature.
 func IncludeRoot(dir string) ExtOption {
-	return ExtOption{apply: func(options *extOptions) {
-		options.IncludeRoot = dir
-	}}
+	return ExtOption{
+		apply: func(options *extOptions) {
+			options.IncludeRoot = dir
+		}}
 }
 
 // ExtOption represents an option to customize the extended features.
@@ -16,6 +26,7 @@ type ExtOption struct {
 }
 
 type extOptions struct {
+	EnableEnv   bool
 	IncludeRoot string
 }
 

@@ -69,7 +69,7 @@ func TestUnmarshal(t *testing.T) {
 
 	os.Setenv("SOME_ENV", "some-env-value")
 	got := make(map[string]interface{})
-	err := Unmarshal([]byte(malformedJSONData), &got)
+	err := Unmarshal([]byte(malformedJSONData), &got, EnableEnv())
 	if err != nil {
 		t.Fatalf("failed unmarshal malformed json: %v", err)
 	}

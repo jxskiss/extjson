@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/jxskiss/extjson/parser"
+	"github.com/jxskiss/extjson/internal/parser"
 )
 
 //go:generate peg -output ./parser/json.peg.go json.peg
@@ -22,7 +22,7 @@ func Unmarshal(data []byte, v interface{}, options ...ExtOption) error {
 	if err != nil {
 		return err
 	}
-	data, err = parser.Parse(data, includeRoot)
+	data, err = parser.Parse(data, includeRoot, opt.EnableEnv)
 	if err != nil {
 		return err
 	}
