@@ -14,6 +14,7 @@
 # - read environment variables
 # - include other JSON files
 # - reference to other values in same file
+# - evaluate expressions at runtime
 
 
 package parser
@@ -28,10 +29,11 @@ Object    <-  LWING ( ObjectKey COLON JSON COMMA )* ( ObjectKey COLON JSON )? RW
 ObjectKey <-  String / SimpleIdentifier
 Array     <-  LBRK ( JSON COMMA )* JSON? RBRK
 
-Directive <-  ( Env / Include / Refer )
+Directive <-  ( Env / Include / Refer / Func )
 Env       <-  '@env(' String ')'
 Include   <-  '@incl(' String ')'
 Refer     <-  '@ref(' String ')'
+Func      <-  '@fn(' String ')'
 
 SimpleIdentifier    <-  [0-9A-Za-z_$]+
 String              <-  SingleQuoteLiteral / DoubleQuoteLiteral

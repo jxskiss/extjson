@@ -172,7 +172,7 @@ func (p *parser) parseJSON(n *node32) (err error) {
 			return
 		}
 	case ruleString:
-		p.buf = append(p.buf, p.parseString(n)...)
+		p.buf = append(p.buf, p.parseString(n, true)...)
 	case ruleTrue:
 		p.buf = append(p.buf, "true"...)
 	case ruleFalse:
@@ -223,7 +223,7 @@ func (p *parser) parseObjectKey(n *node32) string {
 	case ruleSimpleIdentifier:
 		return `"` + string(p.doc.buffer[n.begin:n.end]) + `"`
 	case ruleString:
-		return p.parseString(n)
+		return p.parseString(n, true)
 	}
 	return ""
 }
@@ -254,12 +254,14 @@ func (p *parser) parseArray(n *node32) (err error) {
 
 var singleQuoteReplacer = strings.NewReplacer(`\'`, `'`, `"`, `\"`)
 
-func (p *parser) parseString(n *node32) string {
+func (p *parser) parseString(n *node32, escapeDoubleQuote bool) string {
 	n = n.up
 	switch n.pegRule {
 	case ruleSingleQuoteLiteral:
 		text := string(p.doc.buffer[n.begin+1 : n.end-1])
-		text = singleQuoteReplacer.Replace(text)
+		if escapeDoubleQuote {
+			text = singleQuoteReplacer.Replace(text)
+		}
 		return `"` + text + `"`
 	case ruleDoubleQuoteLiteral:
 		return p.text(n)
@@ -276,17 +278,18 @@ func (p *parser) parseDirective(n *node32) (err error) {
 		return p.parseInclude(n)
 	case ruleRefer:
 		return p.parseRefer(n)
+	case ruleFunc:
+		return p.callFunction(n)
 	}
 	return nil
 }
 
 func (p *parser) parseEnv(n *node32) (err error) {
 	if !p.enableEnv {
-		p.buf = append(p.buf, '"', '"')
-		return nil
+		return errors.New("env feature is not enabled")
 	}
 	n = n.up
-	envName := p.parseString(n)
+	envName := p.parseString(n, true)
 	envName = envName[1 : len(envName)-1]
 	value := os.Getenv(envName)
 	b, _ := json.Marshal(value)
@@ -296,7 +299,7 @@ func (p *parser) parseEnv(n *node32) (err error) {
 
 func (p *parser) parseInclude(n *node32) (err error) {
 	n = n.up
-	importPath := p.parseString(n)
+	importPath := p.parseString(n, true)
 	importPath = filepath.Join(p.root, importPath[1:len(importPath)-1])
 	included, err := ioutil.ReadFile(importPath)
 	if err != nil {
@@ -312,7 +315,7 @@ func (p *parser) parseInclude(n *node32) (err error) {
 
 func (p *parser) parseRefer(n *node32) (err error) {
 	n = n.up
-	jsonPath := p.parseString(n)
+	jsonPath := p.parseString(n, true)
 	jsonPath = jsonPath[1 : len(jsonPath)-1]
 	seq, refId := p.getReferId(jsonPath)
 	p.buf = append(p.buf, '"')
@@ -356,7 +359,7 @@ func (p *JSON) hasExtendedFeature() bool {
 	for _, n := range p.Tokens() {
 		switch n.pegRule {
 		case ruleSingleQuoteLiteral,
-			ruleDirective, ruleEnv, ruleInclude, ruleRefer,
+			ruleDirective, ruleEnv, ruleInclude, ruleRefer, ruleFunc,
 			ruleLongComment, ruleLineComment, rulePragma:
 			return true
 		case ruleRWING, ruleRBRK:

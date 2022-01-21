@@ -8,7 +8,7 @@ import (
 	"github.com/jxskiss/extjson/internal/parser"
 )
 
-//go:generate peg -output ./parser/json.peg.go json.peg
+//go:generate peg -output ./internal/parser/json.peg.go json.peg
 
 // Unmarshal parses the JSON-encoded data and stores the result in the
 // value pointed to by v.

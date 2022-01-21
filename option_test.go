@@ -2,6 +2,7 @@ package extjson
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -12,10 +13,7 @@ func TestDisableEnv(t *testing.T) {
 	os.Setenv("SOME_ENV", "some-env-value")
 	got := make(map[string]interface{})
 	err := Unmarshal([]byte(jdata), &got)
-	if err != nil {
+	if !strings.Contains(err.Error(), "env feature is not enabled") {
 		t.Fatalf("failed unmarshal extended json: %v", err)
-	}
-	if got["test_env"] != "" {
-		t.Fatalf("got unexpected env value: %q", got["test_env"])
 	}
 }
