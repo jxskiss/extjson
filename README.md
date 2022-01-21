@@ -23,6 +23,7 @@ extjson extends the JSON syntax with following features:
 7. read environment variables
 8. include other JSON files (with max depth limited)
 9. reference to other values in same file, using [gjson] path syntax
+10. evaluate expressions at runtime
 
 [gjson]: https://github.com/tidwall/gjson
 
