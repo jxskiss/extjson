@@ -21,32 +21,42 @@ func init() {
 	mrand.Seed(time.Now().UnixNano())
 }
 
+func (p *parser) addFuncs(funcMap map[string]interface{}) {
+	for name, fn := range builtinFuncs {
+		p.funcValMap[name] = reflect.ValueOf(fn)
+	}
+	for name, fn := range funcMap {
+		p.funcValMap[name] = reflect.ValueOf(fn)
+	}
+}
+
 func (p *parser) callFunction(n *node32) (err error) {
 	n = n.up
 	str := p.parseString(n, false)
 	str = str[1 : len(str)-1]
 	str = strings.Replace(str, `'`, `"`, -1)
 
-	var fn interface{}
+	var funcName string
+	var fn reflect.Value
 	var callArgs []reflect.Value
 
-	if fn = builtinFuncs[str]; fn != nil {
-		// pass
+	if fn = p.funcValMap[str]; fn.IsValid() {
+		funcName = str
 	} else {
 		var expr *expression
 		expr, err = parseExpression(str)
 		if err != nil {
 			return err
 		}
-		fn = builtinFuncs[expr.Func]
-		if fn == nil {
+		fn = p.funcValMap[expr.Func]
+		if !fn.IsValid() {
 			return fmt.Errorf("function %s is unknown", expr.Func)
 		}
-		fnVal := reflect.ValueOf(fn)
-		fnTyp := fnVal.Type()
+		fnTyp := fn.Type()
 		if len(expr.Args) != fnTyp.NumIn() {
 			return fmt.Errorf("function %s arguments count not match", expr.Func)
 		}
+		funcName = expr.Func
 		for i := 0; i < len(expr.Args); i++ {
 			fnArgTyp := fnTyp.In(i)
 			if !expr.Args[i].Type().ConvertibleTo(fnArgTyp) {
@@ -56,14 +66,19 @@ func (p *parser) callFunction(n *node32) (err error) {
 		}
 	}
 
-	out := reflect.ValueOf(fn).Call(callArgs)
-	switch ret0 := out[0].Interface().(type) {
-	case string:
+	out := fn.Call(callArgs)
+	if len(out) > 1 && !out[1].IsNil() {
+		return fmt.Errorf("call function %q: %w", funcName, out[1].Interface().(error))
+	}
+
+	result := out[0]
+	if result.Kind() == reflect.String {
+		ret0 := result.String()
 		p.buf = append(p.buf, '"')
 		p.buf = append(p.buf, strings.Replace(ret0, `"`, `\"`, -1)...)
 		p.buf = append(p.buf, '"')
-	default:
-		p.buf = append(p.buf, fmt.Sprint(ret0)...)
+	} else {
+		p.buf = append(p.buf, fmt.Sprint(result.Interface())...)
 	}
 	return nil
 }
@@ -72,8 +87,6 @@ var (
 	errNotCallExpression        = errors.New("not a call expression")
 	errArgumentTypeNotSupported = errors.New("argument type not supported")
 )
-
-type FuncMap map[string]interface{}
 
 type expression struct {
 	Func string
@@ -117,7 +130,7 @@ func parseExpression(str string) (*expression, error) {
 
 // -------- builtins -------- //
 
-var builtinFuncs = FuncMap{
+var builtinFuncs = map[string]interface{}{
 	"nowUnix":    builtinNowUnix,
 	"nowMilli":   builtinNowMilli,
 	"nowNano":    builtinNowNano,

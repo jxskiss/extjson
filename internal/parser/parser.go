@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -21,11 +22,11 @@ import (
 
 const maxImportDepth = 10
 
-func Parse(data []byte, importRoot string, enableEnv bool) ([]byte, error) {
-	return parse(data, importRoot, 0, enableEnv)
+func Parse(data []byte, importRoot string, enableEnv bool, funcMap map[string]interface{}) ([]byte, error) {
+	return parse(data, importRoot, 0, enableEnv, funcMap)
 }
 
-func parse(data []byte, importRoot string, depth int, enableEnv bool) ([]byte, error) {
+func parse(data []byte, importRoot string, depth int, enableEnv bool, funcMap map[string]interface{}) ([]byte, error) {
 	if depth > maxImportDepth {
 		return nil, errors.New("max import depth exceeded")
 	}
@@ -44,13 +45,17 @@ func parse(data []byte, importRoot string, depth int, enableEnv bool) ([]byte, e
 	}
 
 	parser := &parser{
-		doc:       doc,
-		buf:       make([]byte, 0, len(data)),
-		root:      importRoot,
-		depth:     depth,
-		enableEnv: enableEnv,
-		refTable:  make(map[string]int),
+		doc:          doc,
+		buf:          make([]byte, 0, len(data)),
+		root:         importRoot,
+		depth:        depth,
+		enableEnv:    enableEnv,
+		refTable:     make(map[string]int),
+		inputFuncMap: funcMap,
+		funcValMap:   make(map[string]reflect.Value),
 	}
+	parser.addFuncs(funcMap)
+
 	return parser.rewrite()
 }
 
@@ -67,6 +72,9 @@ type parser struct {
 	refCounter int
 	refTable   map[string]int
 	refDag     dag
+
+	inputFuncMap map[string]interface{}
+	funcValMap   map[string]reflect.Value
 }
 
 func (p *parser) text(n *node32) string {
@@ -305,7 +313,7 @@ func (p *parser) parseInclude(n *node32) (err error) {
 	if err != nil {
 		return
 	}
-	included, err = parse(included, p.root, p.depth+1, p.enableEnv)
+	included, err = parse(included, p.root, p.depth+1, p.enableEnv, p.inputFuncMap)
 	if err != nil {
 		return
 	}

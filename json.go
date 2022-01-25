@@ -22,7 +22,10 @@ func Unmarshal(data []byte, v interface{}, options ...ExtOption) error {
 	if err != nil {
 		return err
 	}
-	data, err = parser.Parse(data, includeRoot, opt.EnableEnv)
+	if err = opt.validateFuncs(); err != nil {
+		return err
+	}
+	data, err = parser.Parse(data, includeRoot, opt.EnableEnv, opt.FuncMap)
 	if err != nil {
 		return err
 	}
