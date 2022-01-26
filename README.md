@@ -23,7 +23,7 @@ extjson extends the JSON syntax with following features:
 7. read environment variables
 8. include other JSON files (with max depth limited)
 9. reference to other values in same file, using [gjson] path syntax
-10. evaluate expressions at runtime
+10. evaluate expressions at runtime, with frequently used builtin functions
 
 [gjson]: https://github.com/tidwall/gjson
 
@@ -67,6 +67,11 @@ See [example](#example) and [godoc] for more details.
         {"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
     ],
     "test_ref4": @ref("friends.#.first"), // Will be ["Dale","Roger","Jane"].
+    "test_fn1": @fn("nowUnix"),   // Call builtin function nowUnix.
+    test_fn2: @fn("nowFormat('2006-01-02')"), // Call builtin function nowFormat("2006-01-02").
+    'test_fn3': @fn("uuid"),      // Call builtin function uuid.
+    test_fn4: @fn('randN(10)'),   // Call builtin function randN(10).
+    test_fn5: @fn('randStr(16)'), // Call builtin function randStr(16).
 }
 ```
 
@@ -93,6 +98,11 @@ will be resolved to following:
     { "age": 68, "first": "Roger", "last": "Craig", "nets": [ "fb", "tw" ] },
     { "age": 47, "first": "Jane", "last": "Murphy", "nets": [ "ig", "tw" ] }
   ],
-  "test_ref4": [ "Dale", "Roger", "Jane" ]
+  "test_ref4": [ "Dale", "Roger", "Jane" ],
+  "test_fn1": 1643162035,
+  "test_fn2": "2022-01-26",
+  "test_fn3": "4de97237-8ff1-4cc6-80db-d5485ad2b82e",
+  "test_fn4": 5,
+  "test_fn5": "YewEXAuRrsI3pUCC"
 }
 ```

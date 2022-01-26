@@ -40,7 +40,10 @@ func Example() {
 	os.Setenv("SOME_ENV", "some-env-value")
 
 	var clean json.RawMessage
-	_ = Unmarshal([]byte(data), &clean, EnableEnv())
+	err := Unmarshal([]byte(data), &clean, EnableEnv())
+	if err != nil {
+		panic(err)
+	}
 	out, _ := json.MarshalIndent(clean, "", "  ")
 	fmt.Println(string(out))
 
