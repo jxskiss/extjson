@@ -2,12 +2,11 @@ package parser
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -309,7 +308,7 @@ func (p *parser) parseInclude(n *node32) (err error) {
 	n = n.up
 	importPath := p.parseString(n, true)
 	importPath = filepath.Join(p.root, importPath[1:len(importPath)-1])
-	included, err := ioutil.ReadFile(importPath)
+	included, err := os.ReadFile(importPath)
 	if err != nil {
 		return
 	}

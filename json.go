@@ -2,7 +2,6 @@ package extjson
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
 	"github.com/jxskiss/extjson/internal/parser"
@@ -50,13 +49,7 @@ func Clean(data []byte, options ...ExtOption) ([]byte, error) {
 // such as "trailing comma", "comments", "file including", "refer" etc.
 // The extended features are documented in the README file.
 func Load(path string, v interface{}, options ...ExtOption) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

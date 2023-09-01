@@ -5,21 +5,23 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"go/ast"
+	goast "go/ast"
 	goparser "go/parser"
-	"go/token"
+	gotoken "go/token"
 	"io"
 	mrand "math/rand"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 )
 
-func init() {
-	mrand.Seed(time.Now().UnixNano())
-}
+var (
+	rngMu sync.Mutex
+	_rng  = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+)
 
 func (p *parser) addFuncs(funcMap map[string]interface{}) {
 	for name, fn := range builtinFuncs {
@@ -98,24 +100,24 @@ func parseExpression(str string) (*expression, error) {
 	if err != nil {
 		return nil, err
 	}
-	call, ok := expr.(*ast.CallExpr)
+	call, ok := expr.(*goast.CallExpr)
 	if !ok {
 		return nil, errNotCallExpression
 	}
-	fnName := call.Fun.(*ast.Ident).String()
+	fnName := call.Fun.(*goast.Ident).String()
 	var args []reflect.Value
 	for _, a := range call.Args {
-		lit, ok := a.(*ast.BasicLit)
+		lit, ok := a.(*goast.BasicLit)
 		if !ok {
 			return nil, errArgumentTypeNotSupported
 		}
 		var aVal interface{}
 		switch lit.Kind {
-		case token.INT:
+		case gotoken.INT:
 			aVal, _ = strconv.ParseInt(lit.Value, 10, 64)
-		case token.FLOAT:
+		case gotoken.FLOAT:
 			aVal, _ = strconv.ParseFloat(lit.Value, 64)
-		case token.STRING:
+		case gotoken.STRING:
 			aVal = lit.Value[1 : len(lit.Value)-1]
 		default:
 			return nil, errArgumentTypeNotSupported
@@ -184,20 +186,28 @@ func builtinUuid() string {
 	return *(*string)(unsafe.Pointer(&buf))
 }
 
-func builtinRand() int64 {
-	return mrand.Int63()
+func builtinRand() (x int64) {
+	rngMu.Lock()
+	x = _rng.Int63()
+	rngMu.Unlock()
+	return
 }
 
-func builtinRandN(n int64) int64 {
-	return mrand.Int63n(n)
+func builtinRandN(n int64) (x int64) {
+	rngMu.Lock()
+	x = _rng.Int63n(n)
+	rngMu.Unlock()
+	return
 }
 
 func builtinRandStr(n int) string {
 	const table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	buf := make([]byte, n)
-	max := len(table)
+
+	rngMu.Lock()
+	defer rngMu.Unlock()
 	for i := range buf {
-		buf[i] = table[mrand.Intn(max)]
+		buf[i] = table[_rng.Intn(len(table))]
 	}
 	return *(*string)(unsafe.Pointer(&buf))
 }
